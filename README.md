@@ -59,3 +59,69 @@ npm run dev
 
 The application will launch and you can view it in your browser, typically at `http://localhost:8080` (or another port specified in the terminal output).
 
+## Production Readiness Upgrade
+
+This project was enhanced to improve security, scalability, and operational readiness for production environments. The following upgrades were implemented as part of the Gharpayy production-readiness assignment.
+
+### Security & Role Based Access Control
+- Implemented a `user_roles` table supporting roles: **admin, manager, agent, owner, customer**
+- Hardened **Row Level Security (RLS)** policies to ensure:
+  - Agents only see assigned leads
+  - Owners only see their own inventory
+  - Customers only see their reservations
+
+### Audit Logging
+- Implemented a centralized `audit_log` table
+- Database triggers automatically log updates to:
+  - leads
+  - bookings
+  - properties
+- Provides traceability for system actions.
+
+### Persistent Chat System
+- Refactored the `PropertyChat` component to persist messages in the database
+- Integrated **Supabase Realtime** for instant updates across connected clients
+
+### Background Automation
+Scheduled jobs implemented using **pg_cron**:
+
+- Expired reservation cleanup
+- Nightly lead scoring recalculation
+- Daily analytics snapshot generation
+
+### Performance Improvements
+Added indexes to optimize CRM operations:
+
+- leads
+- bookings
+- visits
+- properties
+
+Implemented **PostgreSQL full-text search** for faster property search by city, area, and property attributes.
+
+### Media & Storage
+Implemented secure property image uploads:
+
+- `PropertyImageUpload` component
+- Multi-file uploads
+- Stored in **Supabase Storage**
+- Generated signed public URLs
+
+### Observability & Error Handling
+- Implemented a global **React ErrorBoundary**
+- Prepared integration for **Sentry error monitoring**
+- Improved logging and debugging capability
+
+### Rate Limiting
+Basic API rate limiting added to protect public endpoints such as:
+
+- lead capture
+- reservation requests
+- chat messages
+
+### Scalability Target
+The upgraded system is designed to support:
+
+- 30+ internal CRM users
+- 100+ property owners
+- 10,000+ daily visitors
