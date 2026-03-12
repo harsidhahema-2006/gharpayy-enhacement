@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Plus, Trash2, UserCog, Building2, User, Save } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SettingsPage = () => {
-  const user = { id: 'admin', email: 'admin@gharpayy.com', user_metadata: { full_name: 'Admin' } };
+  const { user } = useAuth();
   const { data: agents } = useAgents();
   const { data: properties } = useProperties();
   const qc = useQueryClient();
@@ -208,9 +209,10 @@ function PropertiesTab({ properties, qc }: { properties: any[]; qc: any }) {
 }
 
 function ProfileTab({ user }: { user: any }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(user?.user_metadata?.full_name || '');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const qc = useQueryClient();
 
   const handleSave = async () => {
     setSaving(true);
@@ -218,18 +220,30 @@ function ProfileTab({ user }: { user: any }) {
       const updates: any = {};
       if (name) updates.data = { full_name: name };
       if (password) updates.password = password;
-      if (Object.keys(updates).length === 0) { toast.error('Nothing to update'); setSaving(false); return; }
+      if (Object.keys(updates).length === 0) {
+        toast.error('Nothing to update');
+        setSaving(false);
+        return;
+      }
 
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
 
       if (name) {
-        await supabase.from('profiles').update({ full_name: name }).eq('id', user.id);
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, full_name: name });
+        if (profileError) throw profileError;
       }
+
       toast.success('Profile updated');
       setPassword('');
-    } catch (err: any) { toast.error(err.message); }
-    finally { setSaving(false); }
+      qc.invalidateQueries({ queryKey: ['profile', user?.id] });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

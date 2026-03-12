@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePublicProperties, useAvailableCities, useAvailableAreas, useLandmarks, type PropertyFilters } from '@/hooks/usePublicData';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PropertyMap = lazy(() => import('@/components/PropertyMap'));
@@ -20,6 +22,7 @@ const AREA_TAGS = ['Marathahalli', 'Whitefield', 'Koramangala', 'BTM Layout', 'H
 
 export default function Explore() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialArea = searchParams.get('area') || '';
 
@@ -147,7 +150,15 @@ export default function Explore() {
               <button className="text-foreground font-medium">Explore PGs</button>
               <button onClick={() => navigate('/owner-portal')} className="hover:text-foreground transition-colors">For Owners</button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/auth')}>Login</Button>
+            <div className="flex items-center gap-3">
+              {user ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>Sign Out</Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => navigate('/auth')}>Login</Button>
+              )}
+            </div>
           </div>
         </div>
       </header>

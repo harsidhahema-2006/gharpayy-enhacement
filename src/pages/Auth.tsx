@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable/index';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,48 +10,75 @@ import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Auth = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
-  const [email, setEmail] = useState('demo@gharpayy.com');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Auto-create demo account on first visit
-  const ensureDemoAccount = async () => {
-    const { error } = await supabase.auth.signUp({
-      email: 'demo@gharpayy.com',
-      password: 'demo1234',
-      options: { data: { full_name: 'Demo User' } },
-    });
-    // Ignore if already exists
-  };
+  useEffect(() => {
+    if (user) {
+      navigate('/explore', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Ensure demo account exists first
-    if (email === 'demo@gharpayy.com') await ensureDemoAccount();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) toast.error(error.message);
-    else toast.success('Welcome back!');
-    setLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes('Email not confirmed')) {
+          toast.error('Please verify your email before signing in. Check your inbox.');
+        } else if (error.message.includes('Invalid login credentials')) {
+          toast.error('Incorrect email or password. Please try again.');
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.success('Welcome back!');
+        navigate('/explore');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      toast.error('An unexpected error occurred during login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) { toast.error('Full name is required'); return; }
+    if (password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/auth`,
       },
     });
-    if (error) toast.error(error.message);
-    else toast.success('Check your email to verify your account!');
+    if (error) {
+      toast.error(error.message);
+    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+      // User already exists
+      toast.error('An account with this email already exists. Please sign in.');
+    } else {
+      // SUCCESS Case: Special handling to prevent Supabase auto-login
+      // We sign the user out immediately so they are forced to go through the login form
+      await supabase.auth.signOut();
+      
+      toast.success('Account created! Please check your email to verify your account.', { duration: 8000 });
+      setMode('login');
+      // Clearing the form for the forced login step
+      setEmail('');
+      setPassword('');
+    }
     setLoading(false);
   };
 
@@ -67,11 +95,19 @@ const Auth = () => {
 
   const handleGoogle = async () => {
     setLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/explore`,
+      },
     });
-    if (error) toast.error(error instanceof Error ? error.message : 'Google sign-in failed');
-    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+    }
+    // On success, Supabase redirects to Google account picker automatically.
+    // After user picks their account and authenticates, they are redirected back to the app.
+    // The AuthContext picks up the session and useEffect redirects to /explore.
   };
 
   return (
@@ -147,7 +183,7 @@ const Auth = () => {
           {mode !== 'forgot' && (
             <>
               <Button variant="outline" className="w-full gap-2 mb-5 h-11 rounded-xl" onClick={handleGoogle} disabled={loading}>
-                <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
                 Continue with Google
               </Button>
               <div className="relative mb-5">

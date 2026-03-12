@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Shield, ArrowRight, Bed, Building2, Users, ChevronRight } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { usePublicProperties } from '@/hooks/usePublicData';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const CITIES = [
   { name: 'Bangalore', tagline: '300+ PGs', active: true },
@@ -26,8 +28,10 @@ const STATS = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const { data: featured } = usePublicProperties({ city: 'Bangalore', limit: 6 });
+
 
   const getAvailableBeds = (property: any) => {
     if (!property.rooms) return 0;
@@ -67,10 +71,21 @@ export default function LandingPage() {
               <button onClick={() => navigate('/explore')} className="hover:text-foreground transition-colors">About</button>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>Login</Button>
-              <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => navigate('/explore')}>
-                Find a PG
-              </Button>
+              {user ? (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>Sign Out</Button>
+                  <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => navigate('/explore')}>
+                    Explore PGs
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>Login</Button>
+                  <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => navigate('/explore')}>
+                    Find a PG
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -225,11 +240,10 @@ export default function LandingPage() {
                 key={city.name}
                 onClick={() => city.active && navigate('/explore')}
                 disabled={!city.active}
-                className={`p-5 rounded-xl border text-left transition-all ${
-                  city.active
-                    ? 'bg-card border-border hover:border-accent/50 hover:shadow-sm cursor-pointer'
-                    : 'bg-muted/50 border-border/50 cursor-not-allowed opacity-60'
-                }`}
+                className={`p-5 rounded-xl border text-left transition-all ${city.active
+                  ? 'bg-card border-border hover:border-accent/50 hover:shadow-sm cursor-pointer'
+                  : 'bg-muted/50 border-border/50 cursor-not-allowed opacity-60'
+                  }`}
               >
                 <MapPin size={20} className={city.active ? 'text-accent mb-2' : 'text-muted-foreground mb-2'} />
                 <h3 className="font-semibold text-sm">{city.name}</h3>

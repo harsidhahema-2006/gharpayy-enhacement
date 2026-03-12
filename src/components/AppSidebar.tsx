@@ -1,11 +1,13 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Kanban, CalendarCheck, BarChart3, Settings,
   MessageSquare, History, X, Moon, Sun, Building2, Bed, TrendingUp,
-  Map, Sparkles, Receipt, Globe, UserCircle,
+  Map, Sparkles, Receipt, Globe, UserCircle, LogOut
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useCrmData';
 
 const salesItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -33,8 +35,17 @@ const portalItems = [
 
 const AppSidebar = ({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { data: profile } = useProfile(user?.id);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); }, [dark]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   const renderGroup = (label: string, items: typeof salesItems) => (
     <>
@@ -50,6 +61,9 @@ const AppSidebar = ({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => voi
       })}
     </>
   );
+
+  const displayName = profile?.full_name || user?.user_metadata?.full_name || 'User';
+  const displayEmail = user?.email || '';
 
   return (
     <>
@@ -97,15 +111,19 @@ const AppSidebar = ({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => voi
             <Settings size={15} strokeWidth={1.6} />
             <span>Settings</span>
           </NavLink>
+          <button onClick={handleSignOut} className="sidebar-link w-full text-destructive hover:text-destructive">
+            <LogOut size={15} strokeWidth={1.6} />
+            <span>Sign Out</span>
+          </button>
 
           <div className="mt-2 mx-0.5 p-2.5 rounded-lg" style={{ background: 'hsl(var(--sidebar-hover))' }}>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="text-[9px] font-bold text-accent">A</span>
+                <span className="text-[9px] font-bold text-accent">{displayName.charAt(0)}</span>
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-medium truncate" style={{ color: 'hsl(var(--sidebar-active-fg))' }}>Admin</p>
-                <p className="text-[9px] truncate" style={{ color: 'hsl(var(--sidebar-fg))' }}>admin@gharpayy.com</p>
+                <p className="text-[11px] font-medium truncate" style={{ color: 'hsl(var(--sidebar-active-fg))' }}>{displayName}</p>
+                <p className="text-[9px] truncate" style={{ color: 'hsl(var(--sidebar-fg))' }}>{displayEmail}</p>
               </div>
             </div>
           </div>
